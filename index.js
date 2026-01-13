@@ -22,8 +22,17 @@ const client = new MongoClient(uri, {
 
 async function run() {
   const db = client.db('localchef_bazaar');
+  const usersCollection = db.collection('users')
   try {
     await client.connect();
+
+    app.post('/users', async (req, res) => {
+      const user = req.body;
+      user.role = "user";
+      user.createdAt = new Date();
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
+    })
 
 
     // Send a ping to confirm a successful connection
