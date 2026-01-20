@@ -75,6 +75,13 @@ async function run() {
       res.send(user);
     });
 
+    app.get('/users/:email/role', verifyAuthToken, async(req, res) => {
+      const email = req.params.email;
+      const query = {email};
+      const user = await usersCollection.findOne(query);
+      res.send({role: user?.role || 'User'});
+    })
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
