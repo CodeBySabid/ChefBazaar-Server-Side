@@ -47,7 +47,10 @@ async function run() {
 
     app.post('/users', async (req, res) => {
       const user = req.body;
-      user.role = "user";
+      const existingUser = await usersCollection.findOne({email: user.email})
+      if(existingUser) {
+        return res.send({message: 'user already exists' })
+      }
       user.createdAt = new Date();
       const result = await usersCollection.insertOne(user);
       res.send(result);
