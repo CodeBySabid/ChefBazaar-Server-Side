@@ -6,9 +6,28 @@ const port = process.env.PORT || 3000;
 
 const { MongoClient, ServerApiVersion } = require('mongodb');
 
-// middleware
+// Middleware
 app.use(express.json());
 app.use(cors());
+
+const verifyAuthToken = async(req, res, next) => {
+  const token = req.headers.authorization;
+  if(!token){
+    return res.status(401).send({message: 'unauthorized access'});
+  }
+  try{
+    const idToken = token.split(' ')[1];
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    if(req.decodedEmail = req.params.email) {
+      return res.status(403).send({ message: 'Forbidden access' })
+    }
+    req.decodedEmail = decoded.email;
+    next();
+  }
+  catch(err) {
+    return res.status(401).send({message: 'unauthorized access'});
+  }
+}
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.lqmwh22.mongodb.net/?appName=Cluster0`;
 
