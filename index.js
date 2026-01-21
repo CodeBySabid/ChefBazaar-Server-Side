@@ -8,7 +8,7 @@ const { MongoClient, ServerApiVersion } = require('mongodb');
 
 var admin = require("firebase-admin");
 
-var serviceAccount = require("./serviceAccountKey.json");
+var serviceAccount = require(`${process.env.GOOGLE_APPLICATION_CREDENTIALS}`);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -52,6 +52,7 @@ const client = new MongoClient(uri, {
 async function run() {
   const db = client.db('localchef_bazaar');
   const usersCollection = db.collection('users')
+  const reviewCollection = db.collection('user-review')
   try {
     await client.connect();
 
@@ -80,6 +81,18 @@ async function run() {
       const query = {email};
       const user = await usersCollection.findOne(query);
       res.send({role: user?.role || 'User'});
+    })
+
+    app.post('/review', async(req, res) => {
+      const review = req.body;
+      review.createdAt = new Date();
+      const result = await reviewCollection.insertOne(review);
+      res.send(result);
+    })
+
+    app.get('/review', async(req, res) => {
+      const result = await reviewCollection.find().toArray();
+      res.send(result);
     })
 
 
