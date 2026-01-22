@@ -4,7 +4,7 @@ const app = express();
 require('dotenv').config()
 const port = process.env.PORT || 3000;
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 var admin = require("firebase-admin");
 
@@ -53,6 +53,7 @@ async function run() {
   const db = client.db('localchef_bazaar');
   const usersCollection = db.collection('users')
   const reviewCollection = db.collection('user-review')
+  const chefCollection = db.collection('chef')
   try {
     await client.connect();
 
@@ -76,21 +77,38 @@ async function run() {
       res.send(user);
     });
 
-    app.get('/users/:email/role', verifyAuthToken, async(req, res) => {
-      const email = req.params.email;
-      const query = {email};
-      const user = await usersCollection.findOne(query);
-      res.send({role: user?.role || 'User'});
+    app.patch('/users/:id', async (req, res) => {
+      const requestInfo = req.body;
+      console.log(requestInfo)
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          requestInfo: requestInfo.requestRole,
+          requestStatus: 'Pending',
+          requestCreatedAt: new Date(),
+        }
+      }
+      console.log(updateDoc)
+      const result = await usersCollection.updateOne(query, updateDoc);
+      res.send(result);
     })
 
-    app.post('/review', async(req, res) => {
+    app.get('/users/:email/role', verifyAuthToken, async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const user = await usersCollection.findOne(query);
+      res.send({ role: user?.role || 'User' });
+    })
+
+    app.post('/review', async (req, res) => {
       const review = req.body;
       review.createdAt = new Date();
       const result = await reviewCollection.insertOne(review);
       res.send(result);
     })
 
-    app.get('/review', async(req, res) => {
+    app.get('/review', async (req, res) => {
       const result = await reviewCollection.find().toArray();
       res.send(result);
     })
