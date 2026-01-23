@@ -51,9 +51,10 @@ const client = new MongoClient(uri, {
 
 async function run() {
   const db = client.db('localchef_bazaar');
-  const usersCollection = db.collection('users')
-  const reviewCollection = db.collection('user-review')
-  const chefCollection = db.collection('chef')
+  const usersCollection = db.collection('users');
+  const reviewCollection = db.collection('user-review');
+  const foodCollection = db.collection('food');
+  const chefCollection = db.collection('chef');
   try {
     await client.connect();
 
@@ -101,15 +102,23 @@ async function run() {
       res.send({ role: user?.role || 'User' });
     })
 
-    app.post('/review', async (req, res) => {
-      const review = req.body;
-      review.createdAt = new Date();
-      const result = await reviewCollection.insertOne(review);
+    app.delete('/review/:id', verifyAuthToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await reviewCollection.deleteOne(query);
       res.send(result);
     })
 
-    app.get('/review', async (req, res) => {
-      const result = await reviewCollection.find().toArray();
+    app.get('/review/user/:id', async (req, res) => {
+      const foodId = req.params.id;
+      const query = { foodId: foodId };
+      const result = await reviewCollection.find(query).toArray();
+      res.send(result);
+    });
+
+
+    app.get('/food', async (req, res) => {
+      const result = await foodCollection.find().toArray();
       res.send(result);
     })
 
