@@ -102,6 +102,26 @@ async function run() {
       res.send({ role: user?.role || 'User' });
     })
 
+    app.post('/review', async (req, res) => {
+      const review = req.body;
+      const {foodId, email} = req.body;
+      const alreadyReviewed = await reviewCollection.findOne({foodId, email});
+      if(alreadyReviewed) {
+        return res.status(400).send({message: 'You have already reviewed this food'});
+      };
+      review.createdAt = new Date();
+      const result = await reviewCollection.insertOne(review);
+      res.send(result);
+    })
+
+
+    app.get('/review/:email', verifyAuthToken, async (req, res) => {
+      const email = req.decoded_Email;
+      const query = { email };
+      const review = await reviewCollection.find(query).toArray();
+      res.send(review)
+    })
+
     app.delete('/review/:id', verifyAuthToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -116,10 +136,16 @@ async function run() {
       res.send(result);
     });
 
-
     app.get('/food', async (req, res) => {
       const result = await foodCollection.find().toArray();
       res.send(result);
+    })
+
+    app.get('/food/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await foodCollection.findOne(query);
+      res.send(result)
     })
 
 
