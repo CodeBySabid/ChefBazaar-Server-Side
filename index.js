@@ -114,6 +114,24 @@ async function run() {
       res.send(result);
     })
 
+    app.patch('/review/:id', verifyAuthToken, async(req, res) => {
+      const id = req.params.id;
+      const {review, rating} = req.body;
+      const query = {_id: new ObjectId(id)};
+      const existingReview = await reviewCollection.findOne(query)
+      if(existingReview.email !== req.decoded_Email){
+        return res.status(403).send({ message: 'Forbidden access' });
+      }
+      const updateDoc = {
+        $set: {
+          review,
+          rating,
+          createdAt: new Date(),
+        }
+      }
+      const result = await reviewCollection.updateOne(query, updateDoc);
+      res.send(result)
+    })
 
     app.get('/review/:email', verifyAuthToken, async (req, res) => {
       const email = req.decoded_Email;
