@@ -104,22 +104,22 @@ async function run() {
 
     app.post('/review', async (req, res) => {
       const review = req.body;
-      const {foodId, email} = req.body;
-      const alreadyReviewed = await reviewCollection.findOne({foodId, email});
-      if(alreadyReviewed) {
-        return res.status(400).send({message: 'You have already reviewed this food'});
+      const { foodId, email } = req.body;
+      const alreadyReviewed = await reviewCollection.findOne({ foodId, email });
+      if (alreadyReviewed) {
+        return res.status(400).send({ message: 'You have already reviewed this food' });
       };
       review.createdAt = new Date();
       const result = await reviewCollection.insertOne(review);
       res.send(result);
     })
 
-    app.patch('/review/:id', verifyAuthToken, async(req, res) => {
+    app.patch('/review/:id', verifyAuthToken, async (req, res) => {
       const id = req.params.id;
-      const {review, rating} = req.body;
-      const query = {_id: new ObjectId(id)};
+      const { review, rating } = req.body;
+      const query = { _id: new ObjectId(id) };
       const existingReview = await reviewCollection.findOne(query)
-      if(existingReview.email !== req.decoded_Email){
+      if (existingReview.email !== req.decoded_Email) {
         return res.status(403).send({ message: 'Forbidden access' });
       }
       const updateDoc = {
@@ -140,6 +140,11 @@ async function run() {
       res.send(review)
     })
 
+    app.get('/review', async (req, res) => {
+      const result = await reviewCollection.find().toArray();
+      res.send(result)
+    })
+
     app.delete('/review/:id', verifyAuthToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -155,10 +160,12 @@ async function run() {
     });
 
     app.get('/food', async (req, res) => {
-      const result = await foodCollection.find().toArray();
+      const sortOrder = req.query.sort;
+      const sort = sortOrder === 'asc' ? 1 : -1;
+      const result = await foodCollection.find().sort({ price: sort }).toArray();
       res.send(result);
-    })
-
+    });
+    
     app.get('/food/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
