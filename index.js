@@ -54,11 +54,11 @@ async function run() {
   const usersCollection = db.collection('users');
   const reviewCollection = db.collection('user-review');
   const foodCollection = db.collection('food');
-  const chefCollection = db.collection('chef');
+  const orderCollection = db.collection('order-data');
   try {
     await client.connect();
 
-    app.post('/users', async (req, res) => {
+    app.post('/users', verifyAuthToken, async (req, res) => {
       const user = req.body;
       const existingUser = await usersCollection.findOne({ email: user.email })
       if (existingUser) {
@@ -78,9 +78,8 @@ async function run() {
       res.send(user);
     });
 
-    app.patch('/users/:id', async (req, res) => {
+    app.patch('/users/:id', verifyAuthToken, async (req, res) => {
       const requestInfo = req.body;
-      console.log(requestInfo)
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const updateDoc = {
@@ -90,7 +89,6 @@ async function run() {
           requestCreatedAt: new Date(),
         }
       }
-      console.log(updateDoc)
       const result = await usersCollection.updateOne(query, updateDoc);
       res.send(result);
     })
@@ -102,7 +100,7 @@ async function run() {
       res.send({ role: user?.role || 'User' });
     })
 
-    app.post('/review', async (req, res) => {
+    app.post('/review', verifyAuthToken, async (req, res) => {
       const review = req.body;
       const { foodId, email } = req.body;
       const alreadyReviewed = await reviewCollection.findOne({ foodId, email });
@@ -152,7 +150,7 @@ async function run() {
       res.send(result);
     })
 
-    app.get('/review/user/:id', async (req, res) => {
+    app.get('/review/user/:id', verifyAuthToken, async (req, res) => {
       const foodId = req.params.id;
       const query = { foodId: foodId };
       const result = await reviewCollection.find(query).toArray();
@@ -166,11 +164,17 @@ async function run() {
       res.send(result);
     });
     
-    app.get('/food/:id', async (req, res) => {
+    app.get('/food/:id', verifyAuthToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await foodCollection.findOne(query);
       res.send(result)
+    })
+
+    app.post('/order', verifyAuthToken, async(req, res) => {
+      const order = req.body;
+      const result = await orderCollection.insertOne(order);
+      res.send(result);
     })
 
 
