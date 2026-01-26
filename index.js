@@ -202,6 +202,12 @@ async function run() {
       res.send(result);
     });
 
+    app.get('/favorite/:email', verifyAuthToken, async (req, res) => {
+      const email = req.decoded_Email;
+      const result = await favoritesCollection.find({ userEmail: email }).toArray();
+      res.send(result);
+    });
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
