@@ -55,6 +55,7 @@ async function run() {
   const reviewCollection = db.collection('user-review');
   const foodCollection = db.collection('food');
   const orderCollection = db.collection('order-data');
+  const favoritesCollection = db.collection('favorites');
   try {
     await client.connect();
 
@@ -163,7 +164,7 @@ async function run() {
       const result = await foodCollection.find().sort({ price: sort }).toArray();
       res.send(result);
     });
-    
+
     app.get('/food/:id', verifyAuthToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -171,11 +172,35 @@ async function run() {
       res.send(result)
     })
 
-    app.post('/order', verifyAuthToken, async(req, res) => {
+    app.post('/order', verifyAuthToken, async (req, res) => {
       const order = req.body;
       const result = await orderCollection.insertOne(order);
       res.send(result);
     })
+
+    app.post('/favorite/:id', verifyAuthToken, async (req, res) => {
+      const id = req.params.id;
+      const email = req.body.email;
+      const existingFavorite = await favoritesCollection.findOne({
+        mealId: id,
+        userEmail: email
+      });
+      if (existingFavorite) {
+        return res.status(301).send({ message: 'already added to favorites' });
+      }
+      const foodData = await foodCollection.findOne({ _id: new ObjectId(id) });
+      const favoriteData = {
+        userEmail: email,
+        mealId: id,
+        mealName: foodData.foodName,
+        chefId: foodData.chefId,
+        chefName: foodData.chefName,
+        price: foodData.price,
+        createdAt: new Date(),
+      };
+      const result = await favoritesCollection.insertOne(favoriteData);
+      res.send(result);
+    });
 
 
     // Send a ping to confirm a successful connection
