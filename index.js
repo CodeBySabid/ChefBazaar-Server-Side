@@ -27,6 +27,7 @@ const verifyAuthToken = async (req, res, next) => {
     const idToken = token.split(' ')[1];
     const decoded = await admin.auth().verifyIdToken(idToken);
     req.decoded_Email = decoded.email;
+    req.decoded_Role = decoded.role;
     // if(req.decoded_Email = req.params.email) {
     //   return res.status(403).send({ message: 'Forbidden access' })
     // }
@@ -74,7 +75,6 @@ async function run() {
       if (req.decoded_Email !== req.params.email) {
         return res.status(403).send({ message: 'Forbidden access' });
       }
-
       const user = await usersCollection.findOne({ email: req.params.email });
       res.send(user);
     });
@@ -93,6 +93,7 @@ async function run() {
       const result = await usersCollection.updateOne(query, updateDoc);
       res.send(result);
     })
+
 
     app.get('/users/:email/role', verifyAuthToken, async (req, res) => {
       const email = req.params.email;
@@ -213,6 +214,20 @@ async function run() {
       const query = { _id: new ObjectId(id) };
       const result = await favoritesCollection.deleteOne(query);
       res.send(result)
+    })
+
+    app.get('/manager/:role', verifyAuthToken, async (req, res) => {
+      try {
+        const role = req.params.role;
+        if (role !== 'Admin') {
+          return res.status(403).send({ message: 'Forbidden access' });
+        }
+        const result = await usersCollection.find().toArray()
+        res.send(result)
+      }
+      catch (error) {
+        res.status(500).send({ message: 'Server error' });
+      }
     })
 
 
