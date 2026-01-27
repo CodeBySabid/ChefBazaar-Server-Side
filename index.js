@@ -94,6 +94,25 @@ async function run() {
       res.send(result);
     })
 
+    app.patch('/makefraud/:id', verifyAuthToken, async (req, res) => {
+      const id = req.params.id;
+      const status = req.body.status;
+      const query = { _id: new ObjectId(id) };
+      const existingUser = await usersCollection.findOne(query)
+      if (existingUser.role === 'Admin') {
+        return res.send({ message: 'Do not cross your limit' })
+      }
+      if (existingUser.MakeFraud === 'Fraud') {
+        return res.send(console.log('not allow'))
+      }
+      const updateDoc = {
+        $set: {
+          MakeFraud: status,
+        }
+      }
+      const result = await usersCollection.updateOne(query, updateDoc);
+      res.send(result)
+    })
 
     app.get('/users/:email/role', verifyAuthToken, async (req, res) => {
       const email = req.params.email;
