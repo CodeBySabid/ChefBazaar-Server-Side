@@ -111,6 +111,54 @@ async function run() {
       res.send(result);
     })
 
+    app.get('/request', verifyAuthToken, async (req, res) => {
+      const email = req.decoded_Email;
+      const admin = await usersCollection.findOne({ email })
+
+      if (!admin || admin.role !== 'Admin') {
+        return res.status(403).send({ message: 'Forbidden access' });
+      }
+
+      const requests = await usersCollection.find({ requestInfo: { $exists: true } }).toArray();
+      res.send(requests);
+    })
+
+    app.patch('/request/:id', verifyAuthToken, async (req, res) => {
+      const id = req.params.id;
+      const status = req.body.status;
+      const email = req.decoded_Email;
+      const admin = await usersCollection.findOne({ email });
+      if (!admin || admin.role !== 'Admin') {
+        return res.status(403).send({ message: 'Forbidden access' });
+      }
+      const user = await usersCollection.findOne({ _id: new ObjectId(id) });
+      if (!user) {
+        return res.status(404).send({ message: 'User not found' });
+      }
+      let updateDoc = {
+        $set: {
+          requestStatus: status
+        }
+      }
+      if (status === "Accept") {
+        if (user.requestInfo === 'Chef') {
+          const chefId = await generateUniqueChefId();
+          updateDoc.$set.chefId = chefId;
+          updateDoc.$set.role = "Chef";
+          updateDoc.$set.requestStatus = "Accept"
+        }
+        if (user.requestInfo === "Admin") {
+          updateDoc.$set.role = "Admin";
+          updateDoc.$unset = { chefId: '' };
+          updateDoc.$set.requestStatus = "Accept";
+        }
+      }
+      if (status === 'Reject') {
+        updateDoc.$set.requestStatus = 'Rejected';
+      }
+      const result = await usersCollection.updateOne({ _id: new ObjectId(id) }, updateDoc);
+      res.send(result);
+    })
 
 
     app.patch('/makefraud/:id', verifyAuthToken, async (req, res) => {
@@ -267,9 +315,6 @@ async function run() {
         res.status(500).send({ message: 'Server error' });
       }
     })
-
-
-
 
     app.delete('/meals/:id', verifyAuthToken, async (req, res) => {
       const id = req.params.id;
