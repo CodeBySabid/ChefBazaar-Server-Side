@@ -39,7 +39,6 @@ const verifyAuthToken = async (req, res, next) => {
   if (res.headersSent) return;
 }
 
-
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.lqmwh22.mongodb.net/?appName=Cluster0`;
 
 const client = new MongoClient(uri, {
@@ -57,6 +56,24 @@ async function run() {
   const foodCollection = db.collection('food');
   const orderCollection = db.collection('order-data');
   const favoritesCollection = db.collection('favorites');
+
+  const generateChefId = () => {
+    return Math.floor(1000 + Math.random() * 9000);
+  }
+
+  const generateUniqueChefId = async () => {
+    let chefId;
+    let isUnique = false;
+    while (!isUnique) {
+      chefId = generateChefId();
+      const existingChef = await usersCollection.findOne({ chefId });
+      if (!existingChef) {
+        isUnique = true
+      }
+    }
+    return chefId;
+  }
+
   try {
     await client.connect();
 
@@ -93,6 +110,8 @@ async function run() {
       const result = await usersCollection.updateOne(query, updateDoc);
       res.send(result);
     })
+
+
 
     app.patch('/makefraud/:id', verifyAuthToken, async (req, res) => {
       const id = req.params.id;
@@ -249,6 +268,24 @@ async function run() {
       }
     })
 
+
+
+
+    app.delete('/meals/:id', verifyAuthToken, async (req, res) => {
+      const id = req.params.id;
+      const email = req.decoded_Email;
+      const existingMeal = await foodCollection.find({
+        userEmail: email,
+        _id: new ObjectId(id),
+        role: 'Chef',
+      })
+      if (!existingMeal) {
+        return res.status(403).send({ message: 'Unauthorized access' });
+      }
+      const query = { _id: new ObjectId(id) };
+      const result = await foodCollection.deleteOne(query);
+      res.send(result)
+    })
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
