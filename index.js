@@ -259,11 +259,19 @@ async function run() {
       res.send(result)
     })
 
+    app.get('/order', verifyAuthToken, async (req, res) => {
+      const email = req.decoded_Email;
+      const query = { userEmail: email };
+      const result = await orderCollection.find(query).toArray();
+      res.send(result);
+    })
+
     app.post('/order', verifyAuthToken, async (req, res) => {
       const order = req.body;
       const result = await orderCollection.insertOne(order);
       res.send(result);
     })
+
 
     app.post('/favorite/:id', verifyAuthToken, async (req, res) => {
       const id = req.params.id;
@@ -315,6 +323,60 @@ async function run() {
         res.status(500).send({ message: 'Server error' });
       }
     })
+
+    app.post('/meals/:email', verifyAuthToken, async (req, res) => {
+      try {
+        const email = req.decoded_Email;
+        const mealData = req.body;
+        mealData.createdAt = new Date();
+        const id = req.body.chefId;
+        const existingChef = await usersCollection.findOne({
+          email: email,
+          chefId: id,
+        })
+        if (!existingChef) {
+          return res.status(403).send({ message: 'Unauthorized access' });
+        }
+        const result = await foodCollection.insertOne(mealData);
+        res.send(result);
+      }
+      catch (error) {
+        console.log(error)
+      }
+    })
+
+    app.get('/meals/:role', verifyAuthToken, async (req, res) => {
+      const email = req.decoded_Email;
+      const existingChef = await usersCollection.findOne({
+        email: email,
+        role: "Chef",
+      })
+      if (!existingChef) {
+        return res.status(403).send({ message: 'Unauthorized access' });
+      }
+      const result = await foodCollection.find({
+        userEmail: email
+      }).toArray();
+      res.send(result)
+    })
+
+    app.get('/meal/:id', verifyAuthToken, async (req, res) => {
+      const id = req.params.id;
+      const email = req.decoded_Email;
+      const query = { _id: new ObjectId(id) }
+      const existingFood = await foodCollection.find({
+        userEmail: email,
+        query,
+        role: 'Chef',
+      })
+      if (!existingFood) {
+        return res.status(403).send({ message: 'Unauthorized access' });
+      }
+      const result = await foodCollection.findOne(query);
+      res.send(result)
+    })
+
+
 
     app.delete('/meals/:id', verifyAuthToken, async (req, res) => {
       const id = req.params.id;
