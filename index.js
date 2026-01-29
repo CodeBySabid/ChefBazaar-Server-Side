@@ -40,6 +40,7 @@ const verifyAuthToken = async (req, res, next) => {
 }
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.lqmwh22.mongodb.net/?appName=Cluster0`;
+const stripe = require('stripe')(process.env.STRIPE_SECRET);
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -247,8 +248,16 @@ async function run() {
 
     app.get('/food', async (req, res) => {
       const sortOrder = req.query.sort;
+      const searchText = req.query.search;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page -1) * limit;
+      const query = {};
+      if(searchText){
+        query.foodName = {$regex: searchText, $options: 'i'};
+      }
       const sort = sortOrder === 'asc' ? 1 : -1;
-      const result = await foodCollection.find().sort({ price: sort }).toArray();
+      const result = await foodCollection.find(query).sort({ price: sort }).skip(skip).limit(limit).toArray();
       res.send(result);
     });
 
@@ -271,8 +280,6 @@ async function run() {
       const result = await orderCollection.insertOne(order);
       res.send(result);
     })
-
-
     app.post('/favorite/:id', verifyAuthToken, async (req, res) => {
       const id = req.params.id;
       const email = req.body.email;
@@ -376,7 +383,36 @@ async function run() {
       res.send(result)
     })
 
-
+    app.patch('/meal/:id', verifyAuthToken, async (req, res) => {
+      try {
+        const id = req.params.id;
+        const mealInfo = req.body;
+        const email = req.decoded_Email;
+        const query = { _id: new ObjectId(id) }
+        const existingFood = await foodCollection.find({ userEmail: email, query, role: 'Chef', })
+        if (!existingFood) { return res.status(403).send({ message: 'Unauthorized access' }); }
+        const updateDoc = {
+          $set: {
+            foodName: mealInfo.foodName,
+            chefName: mealInfo.chef,
+            foodImage: mealInfo.foodImage,
+            price: mealInfo.foodPrice,
+            rating: mealInfo.rating,
+            ingredients: mealInfo.ingredients,
+            estimatedDeliveryTime: mealInfo.deliveryTime,
+            chefExperience: mealInfo.chefExperience,
+            updatedAt: new Date()
+          }
+        };
+        const result = await foodCollection.updateOne(
+          { _id: new ObjectId(id) },
+          updateDoc
+        );
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: 'Internal server error' });
+      }
+    });
 
     app.delete('/meals/:id', verifyAuthToken, async (req, res) => {
       const id = req.params.id;
