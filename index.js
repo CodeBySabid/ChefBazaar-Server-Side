@@ -251,10 +251,10 @@ async function run() {
       const searchText = req.query.search;
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
-      const skip = (page -1) * limit;
+      const skip = (page - 1) * limit;
       const query = {};
-      if(searchText){
-        query.foodName = {$regex: searchText, $options: 'i'};
+      if (searchText) {
+        query.foodName = { $regex: searchText, $options: 'i' };
       }
       const sort = sortOrder === 'asc' ? 1 : -1;
       const result = await foodCollection.find(query).sort({ price: sort }).skip(skip).limit(limit).toArray();
@@ -279,6 +279,32 @@ async function run() {
       const order = req.body;
       const result = await orderCollection.insertOne(order);
       res.send(result);
+    })
+
+    app.get('/order-pending', verifyAuthToken, async (req, res) => {
+      const email = req.decoded_Email;
+      const existingAdmin = await usersCollection.findOne({
+        email: email,
+        role: "Admin",
+      })
+      if (!existingAdmin) {
+        return res.status(301).send({ message: 'already added to favorites' });
+      }
+      const result = await orderCollection.find({paymentStatus : "Pending"}).toArray();
+      res.send(result)
+    })
+
+    app.get('/order-delivered', verifyAuthToken, async (req, res) => {
+      const email = req.decoded_Email;
+      const existingAdmin = await usersCollection.findOne({
+        email: email,
+        role: "Admin",
+      })
+      if (!existingAdmin) {
+        return res.status(301).send({ message: 'already added to favorites' });
+      }
+      const result = await orderCollection.find({orderStatus : "Accept"}).toArray();
+      res.send(result)
     })
     app.post('/favorite/:id', verifyAuthToken, async (req, res) => {
       const id = req.params.id;
