@@ -348,6 +348,7 @@ async function run() {
       const result = await orderCollection.find({ orderStatus: "Accept" }).toArray();
       res.send(result)
     })
+
     app.post('/payment-checkout', async (req, res) => {
       try {
         const paymentInfo = req.body;
@@ -382,6 +383,58 @@ async function run() {
         console.error(error);
         res.status(500).json({ error: error.message });
       }
+    });
+    app.patch('/payment-success', async (req, res) => {
+      const sessionId = req.query.session_id;
+
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+      if (session.payment_status !== 'paid') {
+        return res.status(400).send({ success: false });
+      }
+
+      const transactionId = session.payment_intent;
+
+      const existingPayment = await paymentCollection.findOne({ transactionId });
+
+      if (existingPayment) {
+        return res.send({
+          success: true,
+          transactionId,
+          trackingId: existingPayment.trackingId,
+        });
+      }
+
+      const trackingId = generateTrackingId();
+
+      const paymentInfo = {
+        amount: session.amount_total / 100,
+        currency: session.currency,
+        customerEmail: session.customer_email,
+        foodId: session.metadata.foodId,
+        foodName: session.metadata.foodName,
+        transactionId,
+        trackingId,
+        paymentStatus: session.payment_status,
+        paidAt: new Date(),
+      };
+
+      const resultPayment = await paymentCollection.insertOne(paymentInfo);
+
+      const orderQuery = { _id: new ObjectId(session.metadata.foodId) };
+
+      await orderCollection.updateOne(orderQuery, {
+        $set: {
+          paymentStatus: 'Paid',
+          trackingId,
+        },
+      });
+
+      return res.send({
+        success: true,
+        transactionId,
+        trackingId,
+      });
     });
     app.post('/favorite/:id', verifyAuthToken, async (req, res) => {
       const id = req.params.id;
