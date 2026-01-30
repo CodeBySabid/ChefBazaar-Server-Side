@@ -3,6 +3,7 @@ const cors = require('cors');
 const app = express();
 require('dotenv').config()
 const port = process.env.PORT || 3000;
+const crypto = require('crypto');
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
@@ -14,6 +15,14 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
 // Middleware
+
+function generateTrackingId() {
+  const prefix = 'PRCL';
+  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const random = crypto.randomBytes(3).toString("hex").toUpperCase();
+  return `${prefix}-${date}-${random}`;
+}
+
 
 app.use(express.json());
 app.use(cors());
@@ -27,8 +36,7 @@ const verifyAuthToken = async (req, res, next) => {
     const idToken = token.split(' ')[1];
     const decoded = await admin.auth().verifyIdToken(idToken);
     req.decoded_Email = decoded.email;
-    req.decoded_Role = decoded.role;
-    // if(req.decoded_Email = req.params.email) {
+    // if(req.decoded_Email = req.params_email) {
     //   return res.status(403).send({ message: 'Forbidden access' })
     // }
     next();
@@ -57,6 +65,7 @@ async function run() {
   const foodCollection = db.collection('food');
   const orderCollection = db.collection('order-data');
   const favoritesCollection = db.collection('favorites');
+  const paymentCollection = db.collection('payments');
 
   const generateChefId = () => {
     return Math.floor(1000 + Math.random() * 9000);
@@ -78,7 +87,7 @@ async function run() {
   try {
     await client.connect();
 
-    app.post('/users', verifyAuthToken, async (req, res) => {
+    app.post('/users', async (req, res) => {
       const user = req.body;
       const existingUser = await usersCollection.findOne({ email: user.email })
       if (existingUser) {
@@ -281,6 +290,39 @@ async function run() {
       res.send(result);
     })
 
+    app.get('/order/:id', verifyAuthToken, async (req, res) => {
+      const id = req.params.id;
+      const email = req.decoded_Email;
+      const query = {
+        chefEmail: email,
+        chefId: parseInt(id)
+      }
+      const result = await orderCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.patch('/order/:id', verifyAuthToken, async (req, res) => {
+      const id = req.params.id;
+      const queryId = { _id: new ObjectId(id) };
+      const status = req.body.status;
+      const email = req.decoded_Email;
+      const query = {
+        email: email,
+        role: 'Chef'
+      }
+      const existingChef = await usersCollection.findOne(query);
+      if (!existingChef) {
+        return res.send(console.log('you are not allow'));
+      }
+      const updateDoc = {
+        $set: {
+          orderStatus: status,
+        }
+      }
+      const result = await orderCollection.updateOne(queryId, updateDoc);
+      res.send(result);
+    })
+
     app.get('/order-pending', verifyAuthToken, async (req, res) => {
       const email = req.decoded_Email;
       const existingAdmin = await usersCollection.findOne({
@@ -290,7 +332,7 @@ async function run() {
       if (!existingAdmin) {
         return res.status(301).send({ message: 'already added to favorites' });
       }
-      const result = await orderCollection.find({paymentStatus : "Pending"}).toArray();
+      const result = await orderCollection.find({ paymentStatus: "Pending" }).toArray();
       res.send(result)
     })
 
@@ -303,9 +345,44 @@ async function run() {
       if (!existingAdmin) {
         return res.status(301).send({ message: 'already added to favorites' });
       }
-      const result = await orderCollection.find({orderStatus : "Accept"}).toArray();
+      const result = await orderCollection.find({ orderStatus: "Accept" }).toArray();
       res.send(result)
     })
+    app.post('/payment-checkout', async (req, res) => {
+      try {
+        const paymentInfo = req.body;
+        const amount = parseInt(paymentInfo.price) * 100;
+
+        const session = await stripe.checkout.sessions.create({
+          // payment_method_types: ['card'],
+          line_items: [
+            {
+              price_data: {
+                currency: 'usd',
+                unit_amount: amount,
+                product_data: {
+                  name: `Please pay for: ${paymentInfo.foodName}`,
+                },
+              },
+              quantity: 1,
+            },
+          ],
+          mode: 'payment',
+          customer_email: paymentInfo.userEmail,
+          metadata: {
+            foodId: paymentInfo.foodId,
+            foodName: paymentInfo.foodName,
+          },
+          success_url: `${process.env.SITE_DOMAIN}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${process.env.SITE_DOMAIN}/dashboard/payment-canceled`,
+        });
+
+        res.json({ url: session.url });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: error.message });
+      }
+    });
     app.post('/favorite/:id', verifyAuthToken, async (req, res) => {
       const id = req.params.id;
       const email = req.body.email;
