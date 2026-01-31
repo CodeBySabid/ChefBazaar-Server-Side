@@ -179,12 +179,12 @@ async function run() {
       if (existingUser.role === 'Admin') {
         return res.send({ message: 'Do not cross your limit' })
       }
-      if (existingUser.MakeFraud === 'Fraud') {
+      if (existingUser.status === 'Fraud') {
         return res.send(console.log('not allow'))
       }
       const updateDoc = {
         $set: {
-          MakeFraud: status,
+          status: status,
         }
       }
       const result = await usersCollection.updateOne(query, updateDoc);
@@ -355,7 +355,6 @@ async function run() {
         const amount = parseInt(paymentInfo.price) * 100;
 
         const session = await stripe.checkout.sessions.create({
-          // payment_method_types: ['card'],
           line_items: [
             {
               price_data: {
@@ -384,6 +383,7 @@ async function run() {
         res.status(500).json({ error: error.message });
       }
     });
+
     app.patch('/payment-success', async (req, res) => {
       const sessionId = req.query.session_id;
 
@@ -436,6 +436,16 @@ async function run() {
         trackingId,
       });
     });
+
+    app.get('/payments', verifyAuthToken, async (req, res) => {
+      const email = req.decoded_Email;
+      const existingEmail = await paymentCollection.findOne({ customElement: email })
+      if (!existingEmail) {
+        return res.status(403).send({ message: 'Forbidden access' });
+      }
+      const result = await paymentCollection.find({ customElement: email }).toArray();
+      res.send(result);
+    })
     app.post('/favorite/:id', verifyAuthToken, async (req, res) => {
       const id = req.params.id;
       const email = req.body.email;
