@@ -446,6 +446,27 @@ async function run() {
       const result = await paymentCollection.find({ customElement: email }).toArray();
       res.send(result);
     })
+
+    app.get("/payment-chart", async (req, res) => {
+      const result = await paymentCollection.aggregate([
+        {
+          $match: { paymentStatus: "paid" }
+        },
+        {
+          $group: {
+            _id: {
+              $dateToString: { format: "%Y-%m-%d", date: "$paidAt" }
+            },
+            totalAmount: { $sum: "$amount" },
+            totalOrders: { $sum: 1 }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ]).toArray();
+
+      res.send(result);
+    });
+
     app.post('/favorite/:id', verifyAuthToken, async (req, res) => {
       const id = req.params.id;
       const email = req.body.email;
